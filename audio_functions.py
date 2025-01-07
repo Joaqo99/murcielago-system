@@ -15,7 +15,7 @@ def moving_media_filter(in_signal, N):
     ir = np.ones(N) * 1 / N
     return conv(in_signal, ir)
 
-def load_audio(file_name, output_format="numpy"):
+def load_audio(file_name, output_format="torch"):
     """
     Loads a mono or stereo audio file in audios folder.
     Input:
@@ -76,51 +76,30 @@ def to_mono(audio):
     """
     Converts a stereo audio vector to mono.
     Insert:
-        - audio: array type object of 2 rows. Audio to convert.
+        - audio: array-like object with 2 rows (stereo audio). Audio to convert.
     Output:
-        - audio_mono: audio converted
+        - audio_mono: converted mono audio.
     """
-    #error handling
-
-
-
-    if  type(audio) != np.ndarray and type(audio) != torch.Tensor:
-        raise ValueError("audio must be a vector")
-    if len(audio.shape) == 1:
-        raise Exception("Audio is already mono")
-    elif audio.shape[0] != 2 and audio.shape[1] != 2: 
-        raise Exception("Non valid vector")
+    # Error handling
+    if not isinstance(audio, (np.ndarray, torch.Tensor)):
+        raise ValueError("Audio must be a NumPy array or a PyTorch tensor.")
     
-    #features
-    audio_mono = (audio[:,0]/2)+(audio[:,1]/2)
+    # Ensure the audio has 2 channels and adjust for transposed cases
+    if len(audio.shape) == 1:
+        return audio
+    elif len(audio.shape) != 2:
+        raise ValueError("Audio must be a 2D array or 1D mono signal.")
+    
+    # Handle transposed case
+    if audio.shape[0] != 2 and audio.shape[1] == 2:
+        audio = audio.T  # Transpose to ensure channels are along the first dimension
+    elif audio.shape[0] != 2:
+        raise ValueError("Audio must have 2 channels for stereo.")
+
+    # Convert to mono
+    audio_mono = (audio[0, :] / 2) + (audio[1, :] / 2)
     return audio_mono
 
-
-    """
-    Returns an auralization of an audio and a given impulse response
-    Input:
-        - ir: array type object. Impulse response
-        - audio: array type object. Must be mono audio.
-        - ir_fs: int type object. Impulse response sample rate.
-        - audio_fs: int type object. Audio sample rate.
-    Output:
-        - audio_auralized: array type object.
-    """
-
-    #error handling
-    if type(ir) != np.ndarray or type(audio) != np.ndarray:
-        raise ValueError("both audio and ir must be a ndarray")
-    if type(ir_fs) != int or type(audio_fs) != int:
-        raise ValueError("fs must be int")
-    
-    assert ir_fs == audio_fs, "Both Impulse Response and Audio sample rates must be the same"
-    
-    if len(audio.shape) != 1:
-        raise Exception("Audio must be mono")
-    
-    #features
-    audio_auralized = signal.fftconvolve(ir, audio)
-    return audio_auralized
 
 def get_audio_time_array(audio, fs):
     """
@@ -133,8 +112,10 @@ def get_audio_time_array(audio, fs):
         - time_array: array type object.
     """
     #error handling
-    if  type(audio) != np.ndarray:
-        raise ValueError("audio must be a ndarray")
+    if isinstance(audio, np.ndarray) or isinstance(audio, torch.Tensor):
+        pass
+    else:
+        raise ValueError("audio must be a ndarray or torch tensor")
     if type(fs) != int:
         raise ValueError("fs must be int")
     
@@ -185,7 +166,7 @@ def generate_time_vector(dur, fs):
     sin_signal = np.cos(sin_arg + phase)
     return sin_signal
 
-def resample_signal_fs(in_signal, original_sr, target_sr, output_format='numpy'):
+def resample_signal_fs(in_signal, original_sr, target_sr, output_format='torch'):
     """
     Resamples a signal to a target sampling rate using torchaudio.
 
@@ -193,7 +174,7 @@ def resample_signal_fs(in_signal, original_sr, target_sr, output_format='numpy')
         signal (torch.Tensor or np.ndarray): The input signal.
         original_sr (int): The original sampling rate of the input signal.
         target_sr (int): The target sampling rate for resampling.
-        output_format (str, optional): The desired output format ('numpy' or 'torch').Defaults to 'numpy'.
+        output_format (str, optional): The desired output format ('numpy' or 'torch').Defaults to 'torch'.
         
     Returns:
         resampled_signal: The resampled signal in the specified format.

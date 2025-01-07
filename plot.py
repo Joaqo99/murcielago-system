@@ -224,17 +224,16 @@ def plot_spectrogram(*vectors, xticks=None, yticks=None, title=None, file_name=F
         plt.ioff()
 
 
-def plot_cwt_spectrogram(vector, wavelet='cmor', scales=None, sampling_period=1, title=None, file_name=False, figsize=False, show=True,
+def plot_cwt_spectrogram(time_vector, coeffs, scales, wavelet, fs=48000, title=None, file_name=False, figsize=False, show=True,
                          y_label="Escalas", x_label="Tiempo [s]", xlimits=False, ylimits=False, cmap="viridis", colorbar_label="Amplitud", shading="auto"):
     """
     Plots wavelet spectrograms (scalograms) for one or more signals.
     Input:
-        - vectors: Optional amount of values. For each vector: Dict type object. Must contain:
-            - signal: array or Torch.tensor type object. Signal amplitudes.
-            - fs: int type object. Sampling frequency.
-        - wavelet: string type object. Wavelet type (default is 'cmor').
+        - time_vector.
+        - coeffs: wavelets coeficients
         - scales: array-like type object. Scales for the wavelet transform. If None, calculated automatically.
-        - sampling_period: float type object. Sampling period of the signal (inverse of fs).
+        - wavelet: str type object. 
+        - fs: float type object. Sampling period of the signal (inverse of fs).
         - title: string type object. Plot title.
         - file_name: string type object. Optional. If true, saves the figure in the 'graficos' folder.
         - figsize: tuple of ints type object. Optional. Figure size.
@@ -252,34 +251,13 @@ def plot_cwt_spectrogram(vector, wavelet='cmor', scales=None, sampling_period=1,
     if figsize:
         plt.figure(figsize=figsize)
 
-    # Validate keys
-    if not ("signal" in vector.keys()):
-        raise Exception("Signal key missing")
-    if not ("fs" in vector.keys()):
-        raise Exception("Sampling frequency (fs) key missing")
-
-    # Extract signal and sampling frequency
-    signal = vector["signal"]
-    fs = vector["fs"]
-
-    if isinstance(signal, torch.Tensor):
-        signal = signal.numpy().astype(np.float32)
-    elif not isinstance(signal, np.ndarray):
-        raise ValueError("Signal must be an array or a Tensor")
-
     if not isinstance(fs, int):
         raise ValueError("Sampling frequency (fs) must be an integer")
 
-    # Calculate wavelet transform
-    sampling_period = 1 / fs
-    if scales is None:
-        scales = np.arange(1, 512)  # Default scales
-
-    coefficients, frequencies = pywt.cwt(signal, scales, wavelet, sampling_period=sampling_period)
+    frequencies = pywt.scale2frequency(wavelet, scales) * fs
 
     # Plot scalogram
-    t = np.arange(0, len(signal)) / fs
-    plt.pcolormesh(t, frequencies, np.abs(coefficients), cmap=cmap, shading=shading)
+    plt.pcolormesh(time_vector, frequencies, np.abs(coeffs), cmap=cmap, shading=shading)
     plt.yscale('log')  # Set Y-axis to logarithmic scale
     plt.colorbar(label=colorbar_label)
     plt.ylabel(y_label, fontsize=13)
@@ -306,77 +284,6 @@ def plot_cwt_spectrogram(vector, wavelet='cmor', scales=None, sampling_period=1,
         plt.show()
     else:
         plt.ioff()
-
-def plot_dwt_spectrogram(vector, wavelet='haar', levels=None, title=None, file_name=False, figsize=False, show=True,
-                         y_label="Nivel", x_label="Tiempo [s]", xlimits=False, ylimits=False, cmap="viridis", colorbar_label="Amplitud"):
-    """
-    Plots discrete wavelet transform (DWT) spectrograms for one or more signals.
-    """
-    if figsize:
-        plt.figure(figsize=figsize)
-
-    # Validate keys
-    if not ("signal" in vector.keys()):
-        raise Exception("Signal key missing")
-    if not ("fs" in vector.keys()):
-        raise Exception("Sampling frequency (fs) key missing")
-
-    # Extract signal and sampling frequency
-    signal = vector["signal"]
-    fs = vector["fs"]
-
-    if isinstance(signal, torch.Tensor):
-        signal = signal.numpy().astype(np.float32)
-    elif not isinstance(signal, np.ndarray):
-        raise ValueError("Signal must be an array or a Tensor")
-
-    if not isinstance(fs, int):
-        raise ValueError("Sampling frequency (fs) must be an integer")
-
-    # Perform DWT decomposition
-    coeffs = pywt.wavedec(signal, wavelet, level=levels)
-    num_levels = len(coeffs)
-
-    # Find the maximum length of the coefficients to pad them for alignment
-    max_length = len(signal)
-    spectrogram = np.zeros((num_levels, max_length))  # Initialize spectrogram array
-
-    # Fill the spectrogram array with upsampled coefficients
-    for i, coeff in enumerate(coeffs):
-        upsampled = np.repeat(coeff, 2**i)  # Upsample coefficients to align with signal length
-        spectrogram[i, :len(upsampled[:max_length])] = upsampled[:max_length]  # Truncate to match max length
-
-    # Generate time vector
-    time = np.linspace(0, len(signal) / fs, max_length)
-
-    # Plot DWT spectrogram
-    plt.pcolormesh(time, np.arange(num_levels), np.abs(spectrogram), cmap=cmap, shading='auto')
-    plt.colorbar(label=colorbar_label)
-    plt.ylabel(y_label, fontsize=13)
-    plt.xlabel(x_label, fontsize=13)
-
-    if title:
-        plt.title(title, fontsize=15)
-
-    if xlimits:
-        if not isinstance(xlimits, tuple):
-            raise ValueError("Xlimits must be a tuple")
-        plt.xlim(xlimits)
-
-    if ylimits:
-        if not isinstance(ylimits, tuple):
-            raise ValueError("Ylimits must be a tuple")
-        plt.ylim(ylimits)
-
-    if file_name:
-        plt.savefig(f"../graficos/{file_name}.png")
-        print(f"File saved in graficos/{file_name}.png")
-
-    if show:
-        plt.show()
-    else:
-        plt.ioff()
-
 
 def multiplot(*plots, figsize=(8, 5)):
     """
