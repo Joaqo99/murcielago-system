@@ -4,10 +4,12 @@ import audio_functions as auf
 import os
 import pywt
 import torch
+from torchaudio import transforms
+import numpy as np
 
 class GunShotsNoisesDataset(Dataset):
 
-    def __init__(self, metadata_file, audios_dir, transformation, sample_rate):
+    def __init__(self, metadata_file, audios_dir, transformation, sample_rate, audio_duration):
         """
         Instance constructor
         Input:
@@ -22,6 +24,7 @@ class GunShotsNoisesDataset(Dataset):
         self.audios_dir = audios_dir
         self.transformation_configure = transformation
         self.sample_rate = sample_rate
+        self.N_samples = int(audio_duration * sample_rate)
 
     def __len__(self):
         """Returns ammount of samples in data"""
@@ -35,10 +38,8 @@ class GunShotsNoisesDataset(Dataset):
     def __getitem__(self, index):
         """
         Returns item and its label by index. The signal is expressed both in waveform and the cwt transform coefficients.
-
         Input:
             - index: int type object.
-
         Output:
             - audio_signal: torch tensor vector type object. Audio waveform
             - transformed signal: tuple type object. Audio spectrogram
@@ -50,9 +51,12 @@ class GunShotsNoisesDataset(Dataset):
         audio_signal, fs = auf.load_audio(audio_sample_path)
         audio_signal = auf.to_mono(audio_signal)
         audio_signal = auf.resample_signal_fs(audio_signal, fs, self.sample_rate)
-        transformed_signal = self._apply_transformation(audio_signal)
+        event_signal = self.detect_event(audio_signal, 0.0001)
 
-        return audio_signal, transformed_signal, label 
+        transformed_signal = self._apply_transformation(event_signal)
+
+        return event_signal, transformed_signal, label 
+
 
     def _get_audio_sample_path(self, index):
 
@@ -77,30 +81,53 @@ class GunShotsNoisesDataset(Dataset):
 
         return label
     
+    def detect_event(self, audio_signal, umbral):
+        """
+        Searchs for impulsive components in audio signal. If no, cuts the signal where dB SPL is present.
+        """
+
+        audio_power = audio_signal**2
+        audio_power_grad = torch.gradient(audio_power)[0]
+
+        init_interval = int(0.005*self.sample_rate)
+        end_interval = self.N_samples - init_interval
+
+        if torch.max(audio_power_grad) > umbral:
+            max_index = audio_power_grad.argmax()
+            event_signal = audio_signal[max_index - init_interval: max_index + end_interval]
+
+            return event_signal
+        else:
+            dB_transform = transforms.AmplitudeToDB(stype="amplitude", top_db=80)
+            audio_dB = dB_transform(audio_signal)
+            max_dB = torch.argmax(audio_dB)
+            event_signal = audio_signal[max_dB - init_interval: max_dB + end_interval]
+            return event_signal
+
+
 
     def _apply_transformation(self, audio_signal):
         """
         Applies a continuous wavelet transform (CWT) to the audio signal.
-    
         Input:
             - audio_signal: torch tensor or numpy array, representing the audio waveform.
-    
         Output:
             - coeffs: torch tensor containing the CWT coefficients.
         """
+        
         # Convert to numpy if audio_signal is a tensor
         if isinstance(audio_signal, torch.Tensor):
-            audio_signal = audio_signal.numpy()
-    
+            audio_signal = audio_signal.numpy().astype(np.float32)
+
         wavelet = self.transformation_configure["wavelet"]
         scales = self.transformation_configure["scales"]
-    
+
         # Apply CWT
         coeffs, freqs = pywt.cwt(audio_signal, scales, wavelet, sampling_period=1/self.sample_rate)
-    
+
         # Convert the coefficients back to a PyTorch tensor
-        coeffs = torch.tensor(coeffs, dtype=torch.float32)
-    
+        coeffs = torch.tensor(coeffs, dtype=torch.complex32)
+
         return coeffs
 
 

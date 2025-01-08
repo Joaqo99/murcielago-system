@@ -190,6 +190,7 @@ def resample_signal_fs(in_signal, original_sr, target_sr, output_format='torch')
     if original_sr == target_sr:
         resampled_signal = in_signal
         print("Las frecuencias de sampleo son iguales, no es necesario resamplear")
+        return in_signal
     else:
         resampled_signal = torchaudio.transforms.Resample(original_sr, target_sr)(in_signal)
         print(f"Señal resampleada de {original_sr} Hz a {target_sr} Hz")

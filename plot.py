@@ -253,11 +253,14 @@ def plot_cwt_spectrogram(time_vector, coeffs, scales, wavelet, fs=48000, title=N
 
     if not isinstance(fs, int):
         raise ValueError("Sampling frequency (fs) must be an integer")
+    
+    #if isinstance(coeffs, torch.Tensor):
+    #    coeffs = coeffs.numpy().astype(np.float32)
 
     frequencies = pywt.scale2frequency(wavelet, scales) * fs
 
     # Plot scalogram
-    plt.pcolormesh(time_vector, frequencies, np.abs(coeffs), cmap=cmap, shading=shading)
+    plt.pcolormesh(time_vector, frequencies, torch.abs(coeffs), cmap=cmap, shading=shading)
     plt.yscale('log')  # Set Y-axis to logarithmic scale
     plt.colorbar(label=colorbar_label)
     plt.ylabel(y_label, fontsize=13)
