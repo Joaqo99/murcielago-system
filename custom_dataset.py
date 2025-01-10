@@ -9,7 +9,7 @@ import numpy as np
 
 class GunShotsNoisesDataset(Dataset):
 
-    def __init__(self, metadata_file, audios_dir, transformation, sample_rate, audio_duration):
+    def __init__(self, metadata_file, audios_dir, transformation, sample_rate, audio_duration = None):
         """
         Instance constructor
         Input:
@@ -18,13 +18,21 @@ class GunShotsNoisesDataset(Dataset):
             - transformation: dict type object for cwt transformation. Values:
                 - wavelet
                 - scales
+            - sample_rate: int type object. Sample rate to work with.
+
         """
         self.shots_metadata = pd.read_excel(metadata_file, sheet_name="Shots")
         self.noises_metadata = pd.read_excel(metadata_file, sheet_name="Noise")
         self.audios_dir = audios_dir
         self.transformation_configure = transformation
         self.sample_rate = sample_rate
-        self.N_samples = int(audio_duration * sample_rate)
+
+        if audio_duration:
+            self.N_samples = int(audio_duration * sample_rate)
+            self.return_waveform = True
+        else:
+            self.N_samples = self.transformation_configure["scales"]
+            self.return_waveform = False
 
     def __len__(self):
         """Returns ammount of samples in data"""
@@ -54,9 +62,10 @@ class GunShotsNoisesDataset(Dataset):
         event_signal = self.detect_event(audio_signal, 0.0001)
 
         transformed_signal = self._apply_transformation(event_signal)
-
-        return event_signal, transformed_signal, label 
-
+        if self.return_waveform:
+            return event_signal, transformed_signal, label
+        else:
+            return transformed_signal, label
 
     def _get_audio_sample_path(self, index):
 
@@ -127,6 +136,7 @@ class GunShotsNoisesDataset(Dataset):
 
         # Convert the coefficients back to a PyTorch tensor
         coeffs = torch.tensor(coeffs, dtype=torch.complex32)
+
         coeffs = coeffs[:,:len(scales)]
         return coeffs
 
