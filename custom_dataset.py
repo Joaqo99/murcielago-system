@@ -6,6 +6,8 @@ import pywt
 import torch
 from torchaudio import transforms
 import numpy as np
+from torch.utils.data import DataLoader, Subset
+from sklearn.model_selection import train_test_split
 
 class GunShotsNoisesDataset(Dataset):
 
@@ -41,7 +43,6 @@ class GunShotsNoisesDataset(Dataset):
         total_len = shots_len + noises_len
 
         return total_len
-
 
     def __getitem__(self, index):
         """
@@ -81,7 +82,6 @@ class GunShotsNoisesDataset(Dataset):
         audio_path = os.path.join(self.audios_dir, folder, audio_file_name)
         return audio_path
         
-
     def _get_audio_sample_label(self, index):
         if index < len(self.shots_metadata):
             label = "Shot"
@@ -113,8 +113,6 @@ class GunShotsNoisesDataset(Dataset):
             event_signal = audio_signal[max_dB - init_interval: max_dB + end_interval]
             return event_signal
 
-
-
     def _apply_transformation(self, audio_signal):
         """
         Applies a continuous wavelet transform (CWT) to the audio signal.
@@ -139,13 +137,26 @@ class GunShotsNoisesDataset(Dataset):
 
         coeffs = coeffs[:,:len(scales)]
         return coeffs
+    
+def split_dataset(dataset, test_size=0.1, random_seed=42):
+    """
+    Splits the dataset into training and testing subsets.
+    Maintains category proportions (Shots and Noises).
+    """
+    # Get indices for each category
+    shots_indices = list(range(len(dataset.shots_metadata)))
+    noises_indices = list(range(len(dataset.shots_metadata), len(dataset)))
 
+    # Split indices for each category
+    shots_train_idx, shots_test_idx = train_test_split(
+        shots_indices, test_size=test_size, random_state=random_seed
+    )
+    noises_train_idx, noises_test_idx = train_test_split(
+        noises_indices, test_size=test_size, random_state=random_seed
+    )
 
-if __name__ == "__main__":
-    metadata_file = "./dataset/metadata.xlsx"
-    audios_dir = "./dataset"
+    # Combine indices
+    train_indices = shots_train_idx + noises_train_idx
+    test_indices = shots_test_idx + noises_test_idx
 
-
-
-    GSN_Dataset = GunShotsNoisesDataset(metadata_file, audios_dir)
-
+    return train_indices, test_indices
