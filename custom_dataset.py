@@ -89,7 +89,7 @@ class GunShotsNoisesDataset(Dataset):
         audio_power = audio_signal**2
         audio_power_grad = torch.gradient(audio_power)[0]
 
-        init_interval = int(0.005*self.sample_rate)
+        init_interval = int(0.0005*self.sample_rate)
         end_interval = self.N_samples - init_interval
 
         if torch.max(audio_power_grad) > umbral:
@@ -127,7 +127,7 @@ class GunShotsNoisesDataset(Dataset):
 
         # Convert the coefficients back to a PyTorch tensor
         coeffs = torch.tensor(coeffs, dtype=torch.complex32)
-
+        coeffs = coeffs[:,:len(scales)]
         return coeffs
 
 
