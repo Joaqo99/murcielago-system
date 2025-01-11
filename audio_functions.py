@@ -166,7 +166,7 @@ def generate_time_vector(dur, fs):
     sin_signal = np.cos(sin_arg + phase)
     return sin_signal
 
-def resample_signal_fs(in_signal, original_sr, target_sr, output_format='torch'):
+def resample_signal_fs(in_signal, original_sr, target_sr, output_format='torch', printing = False):
     """
     Resamples a signal to a target sampling rate using torchaudio.
 
@@ -189,11 +189,13 @@ def resample_signal_fs(in_signal, original_sr, target_sr, output_format='torch')
     # Resample the signal
     if original_sr == target_sr:
         resampled_signal = in_signal
-        print("Las frecuencias de sampleo son iguales, no es necesario resamplear")
+        if printing:
+            print("Las frecuencias de sampleo son iguales, no es necesario resamplear")
         return in_signal
     else:
         resampled_signal = torchaudio.transforms.Resample(original_sr, target_sr)(in_signal)
-        print(f"Señal resampleada de {original_sr} Hz a {target_sr} Hz")
+        if printing:
+            print(f"Señal resampleada de {original_sr} Hz a {target_sr} Hz")
 
     # Convert the resampled signal to the desired output format
     if output_format == 'numpy':

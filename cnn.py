@@ -45,6 +45,7 @@ class ShotDetectionNetwork(nn.Module):
         y = self.conv1(x)
         y = self.conv2(y)
         preds = self.classifier(y)
+        return preds
 
 
 if __name__ == "__main__":

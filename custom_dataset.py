@@ -21,6 +21,7 @@ class GunShotsNoisesDataset(Dataset):
                 - wavelet
                 - scales
             - sample_rate: int type object. Sample rate to work with.
+            - audio_duration: float type object. audio duration of samples. None by default so the default duration is the scales length. If true, the Dataset also returns waveform.
 
         """
         self.shots_metadata = pd.read_excel(metadata_file, sheet_name="Shots")
@@ -33,7 +34,7 @@ class GunShotsNoisesDataset(Dataset):
             self.N_samples = int(audio_duration * sample_rate)
             self.return_waveform = True
         else:
-            self.N_samples = self.transformation_configure["scales"]
+            self.N_samples = len(self.transformation_configure["scales"])
             self.return_waveform = False
 
     def __len__(self):
@@ -63,9 +64,16 @@ class GunShotsNoisesDataset(Dataset):
         event_signal = self.detect_event(audio_signal, 0.0001)
 
         transformed_signal = self._apply_transformation(event_signal)
+
+        #goes from complex values to their mod in float32
+        transformed_signal = torch.abs(transformed_signal)
+        transformed_signal = transformed_signal.to(torch.float32)
+
+
         if self.return_waveform:
             return event_signal, transformed_signal, label
         else:
+            transformed_signal = transformed_signal.unsqueeze(0)
             return transformed_signal, label
 
     def _get_audio_sample_path(self, index):
@@ -84,9 +92,9 @@ class GunShotsNoisesDataset(Dataset):
         
     def _get_audio_sample_label(self, index):
         if index < len(self.shots_metadata):
-            label = "Shot"
+            label = 1 #Es un disparo (el elemento está dentro de la parte de los disparos)
         else:
-            label = "Noise"
+            label = 0
 
         return label
     
@@ -103,7 +111,10 @@ class GunShotsNoisesDataset(Dataset):
 
         if torch.max(audio_power_grad) > umbral:
             max_index = audio_power_grad.argmax()
-            event_signal = audio_signal[max_index - init_interval: max_index + end_interval]
+            if max_index == 0:
+                event_signal = audio_signal[:self.N_samples]
+            else:
+                event_signal = audio_signal[max_index - init_interval: max_index + end_interval]
 
             return event_signal
         else:
@@ -137,7 +148,8 @@ class GunShotsNoisesDataset(Dataset):
 
         coeffs = coeffs[:,:len(scales)]
         return coeffs
-    
+
+
 def split_dataset(dataset, test_size=0.1, random_seed=42):
     """
     Splits the dataset into training and testing subsets.
@@ -159,4 +171,7 @@ def split_dataset(dataset, test_size=0.1, random_seed=42):
     train_indices = shots_train_idx + noises_train_idx
     test_indices = shots_test_idx + noises_test_idx
 
-    return train_indices, test_indices
+    train_dataset = Subset(dataset, train_indices)
+    test_dataset = Subset(dataset, test_indices)
+
+    return train_dataset, test_dataset
