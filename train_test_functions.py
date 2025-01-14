@@ -14,11 +14,11 @@ def train_step(model, data_loader, loss_fn, optimizer, accuracy_fn, device="cpu"
     model.train()
     for X, y in data_loader:    
         X, y = X.to(device), y.to(device)
-        y_pred = model(X)
+        y_logits = model(X).squeeze()
 
-        loss = loss_fn(y_pred, y)
+        loss = loss_fn(y_logits, y)
         train_loss += loss
-        train_acc += accuracy_fn(y_true=y, y_pred=y_pred.argmax(dim=1))
+        train_acc += accuracy_fn(y_true=y, y_logits=y_logits)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -39,9 +39,10 @@ def test_step(model, data_loader, loss_fn, accuracy_fn, device="cpu"):
         for X, y in data_loader:
             X, y = X.to(device), y.to(device)
 
-            test_pred = model(X)
+            test_pred = model(X).squeeze()
+            
             test_loss += loss_fn(test_pred, y)
-            test_acc += accuracy_fn(y_true=y, y_pred=test_pred.argmax(dim=1))
+            test_acc += accuracy_fn(y_true=y, y_logits=test_pred)
 
         test_loss /= len(data_loader)
         test_acc /= len(data_loader)
@@ -69,7 +70,7 @@ def eval_model(model: torch.nn.Module, data_loader, loss_fn, accuracy_fn):
     return {"model_name": model.__class__.__name__, "loss": loss.item(), "accuracy": acc}
 
 
-def accuracy_fn(y_true, y_pred):
+def accuracy_fn(y_true, y_logits):
     """Calculates accuracy between truth labels and predictions.
 
     Args:
@@ -79,6 +80,7 @@ def accuracy_fn(y_true, y_pred):
     Returns:
         [torch.float]: Accuracy value between y_true and y_pred, e.g. 78.45
     """
+    y_pred =  torch.round(torch.sigmoid(y_logits))
     correct = torch.eq(y_true, y_pred).sum().item()
     acc = (correct / len(y_pred)) * 100
     return acc

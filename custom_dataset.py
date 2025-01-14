@@ -96,6 +96,8 @@ class GunShotsNoisesDataset(Dataset):
         else:
             label = 0
 
+        label = torch.tensor(label, dtype=torch.float32)
+
         return label
     
     def detect_event(self, audio_signal, umbral):

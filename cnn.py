@@ -32,20 +32,18 @@ class ShotDetectionNetwork(nn.Module):
                 stride = 2
             ),
             nn.MaxPool2d(kernel_size=2),
-            nn.ReLU()
         )
 
         self.classifier = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(in_features=4*4, out_features=2),
-            nn.Softmax(dim=1)
+            nn.LazyLinear(out_features=1),
         )
     
     def forward(self, x):
         y = self.conv1(x)
         y = self.conv2(y)
-        preds = self.classifier(y)
-        return preds
+        logits = self.classifier(y)
+        return logits
 
 
 if __name__ == "__main__":
